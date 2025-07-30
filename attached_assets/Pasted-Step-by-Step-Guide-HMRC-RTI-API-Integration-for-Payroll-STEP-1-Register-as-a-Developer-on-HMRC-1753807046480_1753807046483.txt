@@ -1,0 +1,99 @@
+Step-by-Step Guide: HMRC RTI API Integration for Payroll
+
+🧱 STEP 1: Register as a Developer on HMRC
+👉 Do this at:
+
+https://developer.service.hmrc.gov.uk
+
+Create a developer account
+Register your application
+Subscribe to the following APIs:
+Real Time Information (RTI)
+Employer Payment Summary (EPS)
+NINO Verification (optional)
+Obtain:
+Client ID
+Client Secret
+Redirect URI
+🔐 STEP 2: Implement OAuth 2.0 Authentication
+HMRC requires OAuth 2.0 (Authorization Code Grant) flow for authentication.
+
+🔄 OAuth Flow Summary:
+
+Redirect user (employer) to HMRC auth page:
+https://test-accounts.service.hmrc.gov.uk/oauth/authorize
+With:
+
+client_id
+response_type=code
+redirect_uri
+scope=read:employment-history write:real-time-information
+User logs in with Government Gateway credentials
+Redirect returns ?code=abc123
+Exchange code for access token via:
+POST https://test-api.service.hmrc.gov.uk/oauth/token
+With:
+
+grant_type=authorization_code
+client_id, client_secret, redirect_uri, code
+📤 STEP 3: Build FPS (Full Payment Submission) Request
+After payroll is calculated:
+
+✅ Submit the FPS:
+
+POST https://test-api.service.hmrc.gov.uk/individuals/employments/payments
+Authorization: Bearer {access_token}
+Content-Type: application/json
+Accept: application/vnd.hmrc.1.0+json
+📄 Example Payload (simplified):
+
+{
+  "employerRef": "123/A4567",
+  "employees": [
+    {
+      "nino": "AB123456C",
+      "name": "John Smith",
+      "pay": {
+        "gross": 2500,
+        "tax": 300,
+        "ni": 200
+      },
+      "paymentDate": "2025-07-31"
+    }
+  ]
+}
+💡 You must calculate PAYE, NICs, student loans, etc. before submission.
+
+📨 STEP 4: Handle HMRC Response
+The response will include:
+
+{
+  "submissionId": "abc-123-def",
+  "status": "ACCEPTED",
+  "acknowledgementReference": "XYZ098"
+}
+✅ Store this submission ID for auditing.
+
+❌ If error returned (e.g., bad NINO), display it in UI and flag it for correction.
+
+📄 STEP 5: Send EPS (Employer Payment Summary)
+This is submitted monthly (or if you're reclaiming SMP, SPP, etc.).
+
+POST https://test-api.service.hmrc.gov.uk/individuals/employments/payments/eps
+EPS includes:
+
+Recoverable statutory pay
+Apprenticeship levy
+CIS deductions
+📋 STEP 6: Submission Logs / UI Integration
+Show status per submission (Accepted, Rejected)
+Include:
+Date
+Employer Ref
+Employee count
+HMRC status
+🔄 STEP 7: HMRC Test vs Live Environments
+Environment	Base URL
+Test (sandbox)	https://test-api.service.hmrc.gov.uk
+Live (production)	https://api.service.hmrc.gov.uk
+💡 You must re-authorize and re-obtain tokens for the live environment.

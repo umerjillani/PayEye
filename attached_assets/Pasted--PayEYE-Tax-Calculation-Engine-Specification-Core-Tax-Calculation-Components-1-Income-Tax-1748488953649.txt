@@ -1,0 +1,273 @@
+# PayEYE Tax Calculation Engine Specification
+
+## Core Tax Calculation Components
+
+### 1. Income Tax (PAYE) Engine
+```javascript
+class PAYETaxCalculator {
+    constructor() {
+        this.currentTaxYear = '2025-26';
+        this.taxBands = {
+            personalAllowance: { min: 0, max: 12570, rate: 0 },
+            basicRate: { min: 12571, max: 37700, rate: 0.20 },
+            higherRate: { min: 37701, max: 125140, rate: 0.40 },
+            additionalRate: { min: 125141, max: Infinity, rate: 0.45 }
+        };
+    }
+    
+    calculateIncomeTax(grossPay, taxCode, periodType, payeToDate, payToDate) {
+        const personalAllowance = this.getPersonalAllowance(taxCode);
+        const taxableIncome = this.calculateTaxableIncome(grossPay, personalAllowance, payeToDate, payToDate);
+        return this.applyTaxBands(taxableIncome);
+    }
+    
+    getPersonalAllowance(taxCode) {
+        // Extract allowance from tax code (e.g., 1257L = £12,570)
+        const codeNumber = parseInt(taxCode.replace(/[A-Z]/g, ''));
+        return codeNumber * 10;
+    }
+}
+```
+
+### 2. National Insurance Contributions Engine
+```javascript
+class NICCalculator {
+    constructor() {
+        this.employeeRates = {
+            category_A: { threshold: 12570, rate: 0.08, upperThreshold: 50270, upperRate: 0.02 },
+            category_B: { threshold: 12570, rate: 0.055, upperThreshold: 50270, upperRate: 0.02 }
+            // ... other categories
+        };
+        this.employerRates = {
+            secondary: { threshold: 5000, rate: 0.15 },
+            employmentAllowance: 10500
+        };
+    }
+    
+    calculateEmployeeNIC(grossPay, nicCategory, payPeriod) {
+        const rates = this.employeeRates[nicCategory];
+        return this.applyNICRates(grossPay, rates, payPeriod);
+    }
+    
+    calculateEmployerNIC(grossPay, employmentAllowanceUsed) {
+        const rates = this.employerRates.secondary;
+        const nic = this.applyNICRates(grossPay, rates, 'annual');
+        return Math.max(0, nic - (this.employerRates.employmentAllowance - employmentAllowanceUsed));
+    }
+}
+```
+
+### 3. Statutory Payments Calculator
+```javascript
+class StatutoryPayCalculator {
+    calculateSSP(daysAbsent, averageWeeklyEarnings) {
+        const sspRate = 116.75; // Weekly rate for 2025-26
+        const qualifyingDays = Math.min(daysAbsent, 28 * 7); // 28 weeks max
+        return (qualifyingDays / 7) * sspRate;
+    }
+    
+    calculateSMP(averageWeeklyEarnings, weeksEntitled) {
+        const smpRate = Math.min(averageWeeklyEarnings * 0.9, 184.03); // 90% or statutory rate
+        return weeksEntitled * smpRate;
+    }
+}
+```
+
+## RTI Integration Components
+
+### 4. FPS (Full Payment Submission) Generator
+```javascript
+class FPSGenerator {
+    generateFPS(payrollData, companyId) {
+        return {
+            employerReference: payrollData.employerReference,
+            payFrequency: payrollData.payFrequency,
+            taxYear: payrollData.taxYear,
+            employees: payrollData.employees.map(emp => ({
+                employeeDetails: {
+                    nino: emp.nationalInsuranceNumber,
+                    surname: emp.lastName,
+                    forename: emp.firstName,
+                    dateOfBirth: emp.dateOfBirth,
+                    gender: emp.gender,
+                    address: emp.address
+                },
+                employment: {
+                    payrollId: emp.payrollId,
+                    startDate: emp.startDate,
+                    paymentToDate: emp.paymentToDate,
+                    totalTaxToDate: emp.totalTaxToDate,
+                    totalNICToDate: emp.totalNICToDate,
+                    taxCode: emp.taxCode,
+                    nicCategory: emp.nicCategory
+                },
+                paymentForPeriod: {
+                    paymentDate: emp.paymentDate,
+                    taxablePay: emp.taxablePay,
+                    taxDeducted: emp.taxDeducted,
+                    employeeNIC: emp.employeeNIC,
+                    employerNIC: emp.employerNIC,
+                    studentLoanDeduction: emp.studentLoanDeduction
+                }
+            }))
+        };
+    }
+}
+```
+
+### 5. HMRC API Integration
+```javascript
+class HMRCIntegration {
+    constructor(companyId) {
+        this.baseURL = 'https://api.service.hmrc.gov.uk';
+        this.oauth = new HMRCOAuth(companyId);
+    }
+    
+    async submitFPS(fpsData) {
+        const accessToken = await this.oauth.getAccessToken();
+        const response = await fetch(`${this.baseURL}/individuals/income-received/paye`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.hmrc.1.0+json'
+            },
+            body: JSON.stringify(fpsData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`FPS submission failed: ${response.status}`);
+        }
+        
+        return response.json();
+    }
+    
+    async submitEPS(epsData) {
+        // Similar implementation for EPS submissions
+    }
+    
+    async getTaxCodeUpdates(employerReference) {
+        // Fetch tax code updates from HMRC
+    }
+}
+```
+
+## PayEYE Competitive Advantages
+
+### 1. OCR-Powered Timesheet Processing
+- **Automated Data Extraction**: Extract timesheet data from images/PDFs
+- **Multi-Format Support**: Handle various timesheet layouts
+- **Confidence Scoring**: Flag low-confidence extractions for review
+- **Smart Validation**: Cross-reference with employee records
+
+### 2. Multi-Company Architecture
+- **Complete Data Isolation**: Company-specific databases
+- **White-Label Branding**: Custom domains and themes
+- **Centralized Management**: Super-admin oversight across companies
+- **Scalable Infrastructure**: Handle thousands of companies
+
+### 3. Advanced Automation Features
+```javascript
+class PayEYEAutomation {
+    async processTimesheetBatch(companyId, documentUrls) {
+        const results = [];
+        
+        for (const url of documentUrls) {
+            // OCR processing
+            const extractedData = await this.ocrService.extractTimesheet(url);
+            
+            // AI validation and structuring
+            const structuredData = await this.aiService.structureData(extractedData);
+            
+            // Auto-match to employees
+            const matchedEmployee = await this.matchEmployee(structuredData, companyId);
+            
+            // Calculate payroll automatically
+            const payrollData = await this.calculatePayroll(structuredData, matchedEmployee);
+            
+            results.push({
+                originalDocument: url,
+                extractedData: structuredData,
+                employee: matchedEmployee,
+                payrollCalculation: payrollData,
+                requiresReview: structuredData.confidence < 0.9
+            });
+        }
+        
+        return results;
+    }
+}
+```
+
+### 4. Compliance & Reporting Features
+- **Real-time RTI Submissions**: Automatic FPS/EPS generation
+- **Tax Code Management**: Auto-sync with HMRC updates
+- **Penalty Prevention**: Automated deadline tracking
+- **Audit Trail**: Complete transaction logging
+- **Multi-format Exports**: P45, P60, P11D generation
+
+### 5. Self-Hosted Benefits
+- **Data Sovereignty**: Complete client control over data
+- **Custom Integrations**: Direct API access for client systems  
+- **Cost Efficiency**: No per-employee pricing models
+- **Backup & Recovery**: Client-controlled data backup
+- **Performance**: Dedicated resources per installation
+
+## Implementation Roadmap
+
+### Phase 1: Core Tax Engine (Weeks 1-4)
+- Implement PAYE and NIC calculators
+- Build statutory payments system
+- Create tax code management
+- Develop basic RTI submission capability
+
+### Phase 2: HMRC Integration (Weeks 5-8)
+- OAuth implementation for HMRC API
+- FPS/EPS generation and submission
+- Tax code update synchronization
+- Error handling and retry logic
+
+### Phase 3: OCR Integration (Weeks 9-12)
+- Adapt existing Python OCR system
+- Build timesheet extraction workflows
+- Implement confidence scoring
+- Create manual validation interface
+
+### Phase 4: Multi-Company Features (Weeks 13-16)
+- Company isolation architecture
+- White-label customization
+- Super-admin management tools
+- Domain routing implementation
+
+### Phase 5: Advanced Features (Weeks 17-20)
+- Automated payroll processing
+- Advanced reporting suite
+- Mobile payslip access
+- Integration APIs for third-party systems
+
+## Technology Stack Recommendations
+
+### Backend
+- **Node.js/Express** or **Django REST Framework**
+- **PostgreSQL** with row-level security for multi-tenancy
+- **Redis** for caching and session management
+- **Bull/Celery** for background job processing
+
+### Frontend
+- **React.js** with TypeScript
+- **Tailwind CSS** for styling
+- **React Query** for API state management
+- **React Hook Form** for form handling
+
+### Infrastructure
+- **Docker** containerization
+- **Nginx** reverse proxy with SSL
+- **MinIO** S3-compatible storage
+- **PM2/Gunicorn** process management
+- **PostgreSQL** with automated backups
+
+### APIs & Integrations
+- **HMRC MTD API** for RTI submissions
+- **AI API** for document processing
+- **Webhook system** for real-time notifications
+- **REST/GraphQL APIs** for client integrations

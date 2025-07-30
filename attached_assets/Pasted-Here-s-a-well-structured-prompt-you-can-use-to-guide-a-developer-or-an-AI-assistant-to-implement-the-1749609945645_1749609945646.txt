@@ -1,0 +1,76 @@
+Here's a well-structured prompt you can use to guide a developer or an AI assistant to implement the **HMRC RTI API** for **batch processing payroll tax codes**, aligned with your screenshot context:
+
+---
+
+### ✅ Prompt: Implement RTI Tax Code Retrieval via HMRC API
+
+> **Objective:**
+> Build a workflow that connects to HMRC's Real-Time Information (RTI) API to retrieve the current PAYE tax code and other employment metadata (e.g., pay frequency, employer name) for each employee in a payroll batch. This process should reflect the employee listings shown in the payroll batch review (as in the screenshot), including both umbrella and subcontractor workers.
+
+---
+
+### 🔁 **Workflow Requirements:**
+
+1. **Authentication:**
+
+   * Use HMRC’s OAuth 2.0 flow to authenticate and obtain an access token.
+   * Ensure that proper scopes (`read:employment`) are requested.
+   * If retrieving individual employee data, require user consent via Government Gateway (Authorization Code Grant).
+
+2. **Input Dataset:**
+
+   * Each employee record must include:
+
+     * Full name
+     * National Insurance Number (NINO)
+     * Payroll ID (if applicable)
+   * Pull from your system's existing payroll batch (like the UI screenshot showing employee rows).
+
+3. **API Request Loop:**
+
+   * For each employee:
+
+     * Send a GET request to `/individuals/employment/{nino}/employment`
+     * Provide date range parameters to cover the current tax year.
+   * Include appropriate headers: access token, accept type, etc.
+
+4. **Response Handling:**
+
+   * Parse the returned JSON to extract:
+
+     * `taxCode`
+     * `employerName`
+     * `startDate`
+     * `payFrequency`
+   * Handle edge cases where:
+
+     * The employee has no active record
+     * Multiple employments exist (select based on payroll ID if present)
+
+5. **Batch Processing Logic:**
+
+   * Store results for each employee in a temporary or permanent datastore.
+   * Mark records with any API retrieval errors (e.g., invalid NINO, missing consent).
+   * Match returned data against internal payroll record and flag discrepancies.
+
+6. **UI Feedback (optional):**
+
+   * Highlight missing or mismatched tax codes in the payroll UI (e.g., show as warnings).
+   * Allow downloading of the enriched batch report.
+
+7. **Security and Audit:**
+
+   * Log all access requests with timestamp, NINO, and outcome.
+   * Ensure secure handling of tokens and personal identifiers.
+
+---
+
+### 📋 Notes:
+
+* The solution must not assume a fixed number of employees; support batch sizes of up to 100.
+* Do not hardcode tax codes — always fetch them from HMRC where possible.
+* Comply with HMRC sandbox/test environment before production use.
+
+---
+
+Let me know if you want to refine this prompt for a job description, AI implementation task, or developer onboarding.

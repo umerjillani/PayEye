@@ -1,0 +1,352 @@
+# PayEYE Multi-Tenant Payroll Management System
+
+Create a comprehensive payroll management web application that serves multiple payroll companies managing agencies, employees, timesheets, and payments.
+
+## Tech Stack
+- React.js with Tailwind CSS
+- In-memory data storage (structured JavaScript objects)
+- JWT-based authentication simulation
+- Responsive design with dark/light themes
+
+## Database Structure (Implement as JavaScript objects/arrays)
+
+### Core Tables:
+```javascript
+// Companies (Multi-tenant structure)
+companies: {
+  companyId: 'string (PK)',
+  companyName: 'string',
+  subdomainSlug: 'string (unique)',
+  logoUrl: 'string',
+  primaryColor: 'string',
+  contactEmail: 'string',
+  planTier: 'string',
+  active: 'boolean',
+  createdAt: 'datetime'
+}
+
+// Users (Per company)
+users: {
+  userId: 'string (PK)',
+  companyId: 'string (FK)',
+  email: 'string',
+  firstName: 'string',
+  lastName: 'string',
+  role: 'string', // admin, manager, accountant, viewer
+  lastLogin: 'datetime',
+  firstTimeLogin: 'boolean',
+  status: 'string',
+  createdAt: 'datetime'
+}
+
+// Agencies (Clients of payroll companies)
+agencies: {
+  agencyId: 'string (PK)',
+  companyId: 'string (FK)',
+  agencyName: 'string',
+  accountInvoiceRequired: 'boolean',
+  VATTable: 'boolean',
+  codaRef: 'string',
+  contactPerson: 'string',
+  email: 'string',
+  phone: 'string',
+  address: 'string',
+  paymentTerms: 'integer',
+  notes: 'string',
+  status: 'string'
+}
+
+// Candidates/Employees
+candidates: {
+  candidateId: 'string (PK)',
+  companyId: 'string (FK)',
+  agencyId: 'string (FK)',
+  firstName: 'string',
+  lastName: 'string',
+  supplierCode: 'string',
+  employmentType: 'string',
+  percentageCap: 'decimal',
+  margin: 'decimal',
+  codaRef: 'string',
+  bankName: 'string',
+  accountNumber: 'string',
+  sortCode: 'string',
+  taxCode: 'string',
+  status: 'string',
+  remittanceStatus: 'string',
+  phone: 'string',
+  email: 'string',
+  address: 'string'
+}
+
+// Timesheets
+timesheets: {
+  timesheetId: 'string (PK)',
+  companyId: 'string (FK)',
+  candidateId: 'string (FK)',
+  agencyId: 'string (FK)',
+  shiftType: 'string',
+  startDate: 'date',
+  endDate: 'date',
+  timesheetNumber: 'string',
+  hoursCharged: 'decimal',
+  payRate: 'decimal',
+  grossPay: 'decimal',
+  VAT: 'decimal',
+  totalReceived: 'decimal',
+  customerCode: 'string',
+  supplierCode: 'string',
+  shiftDetails: 'string',
+  remittanceNumber: 'string',
+  remittanceDate: 'date',
+  status: 'string',
+  remittanceStatus: 'string',
+  primoStatus: 'string',
+  invoiceRequired: 'boolean',
+  VATAble: 'boolean',
+  invoiceStatus: 'string',
+  originalDocumentURL: 'string',
+  extractedData: 'json'
+}
+
+// Invoices
+invoices: {
+  invoiceId: 'string (PK)',
+  companyId: 'string (FK)',
+  invoiceNumber: 'string',
+  agencyId: 'string (FK)',
+  totalAmount: 'decimal',
+  VAT: 'decimal',
+  netAmount: 'decimal',
+  invoiceDate: 'date',
+  dueDate: 'date',
+  status: 'string',
+  pdfURL: 'string',
+  notes: 'string'
+}
+
+// Payslips
+payslips: {
+  payslipId: 'string (PK)',
+  companyId: 'string (FK)',
+  candidateId: 'string (FK)',
+  timesheetId: 'string (FK)',
+  payPeriodStart: 'date',
+  payPeriodEnd: 'date',
+  grossPay: 'decimal',
+  deductions: 'json',
+  netPay: 'decimal',
+  employmentType: 'string',
+  adminFee: 'decimal',
+  taxDetails: 'json',
+  pensionContribution: 'decimal',
+  pdfURL: 'string',
+  status: 'string',
+  paymentStatus: 'string'
+}
+
+// Payments
+payments: {
+  paymentId: 'string (PK)',
+  companyId: 'string (FK)',
+  candidateId: 'string (FK)',
+  amount: 'decimal',
+  bankAccountNumber: 'string',
+  sortCode: 'string',
+  paymentDate: 'date',
+  status: 'string',
+  batchId: 'string (FK)',
+  notes: 'string'
+}
+
+// Payment Batches
+paymentBatches: {
+  batchId: 'string (PK)',
+  companyId: 'string (FK)',
+  totalAmount: 'decimal',
+  paymentDate: 'date',
+  processedBy: 'string (FK)',
+  status: 'string',
+  bankFileURL: 'string'
+}
+
+// Junction Tables
+invoiceTimesheets: {
+  invoiceId: 'string (FK)',
+  timesheetId: 'string (FK)'
+}
+
+paymentPayslips: {
+  paymentId: 'string (FK)',
+  payslipId: 'string (FK)'
+}
+
+// Audit Logs
+auditLogs: {
+  logId: 'string (PK)',
+  companyId: 'string (FK)',
+  userId: 'string (FK)',
+  entityType: 'string',
+  entityId: 'string',
+  action: 'string',
+  oldData: 'json',
+  newData: 'json',
+  timestamp: 'datetime'
+}
+```
+
+### Relationships:
+- Companies have many Users, Agencies, Candidates, Timesheets
+- Agencies have many Candidates and receive Invoices
+- Candidates work on Timesheets and receive Payslips/Payments
+- Timesheets generate Payslips and are included in Invoices
+- Payments are grouped into PaymentBatches
+
+## Key Features
+
+### 1. Multi-Tenant System
+- Company selection dropdown (simulating subdomains)
+- Company-specific branding and colors
+- Data isolation between companies
+- Role-based access: Super Admin, Company Admin, Manager, Accountant, Viewer
+
+### 2. Employee Management
+Create comprehensive employee forms with:
+- Personal details (name, DOB, gender)
+- Employment info (agency, tax code, employment type)
+- Banking details (account number, sort code)
+- Pay rates and margin calculations
+- Status tracking and reference numbers
+
+### 3. Agency Management
+- CRUD operations for client agencies
+- Contact management and payment terms
+- Agency-specific employee assignments
+- Invoice generation per agency
+
+### 4. Timesheet Processing
+- Manual timesheet entry with date ranges
+- Hours tracking with automatic pay calculations
+- Document upload simulation with mock OCR processing
+- Approval workflows and status tracking
+- Bulk processing capabilities
+
+### 5. Invoice & Payment Systems
+- Automatic invoice generation from approved timesheets
+- VAT calculations and tax handling
+- Invoice templates with company branding
+- Payment batch processing
+- Payslip generation with deductions
+
+### 6. Dashboard & Reporting
+Main dashboard showing:
+- Pending timesheets count
+- Outstanding invoices summary
+- Monthly revenue charts
+- Overdue payments alerts
+- Quick action buttons
+
+## UI Requirements
+
+### Navigation Structure
+```
+Dashboard
+├── Agencies (view all, add new, details)
+├── Employees (view all, add new, profiles)
+├── Timesheets (pending, manual entry, upload)
+├── Invoices (all invoices, generate, templates)
+├── Payroll (process, payslips, batches)
+├── Reports (financial, tax, exports)
+└── Settings (company, users, system)
+```
+
+### Key UI Components
+
+1. **Employee Creation Form**:
+   - Two-column responsive layout
+   - Personal details section with validation
+   - Employment and banking information
+   - Real-time pay rate calculations
+   - Status and reference number generation
+
+2. **Timesheet Entry Interface**:
+   - Date range picker
+   - Hours input with rate calculations
+   - Description and shift details
+   - Real-time gross pay display
+   - Save and submit workflows
+
+3. **Document Processing**:
+   - Drag-and-drop file upload
+   - Mock OCR processing with loading states
+   - Extracted data preview and validation
+   - Auto-population of forms from extracted data
+
+4. **Payroll Processing View**:
+   - Tax period selection
+   - Employee payslip previews
+   - Gross/net pay breakdown
+   - Tax and NI calculations (UK-based)
+   - Batch payment generation
+
+## Sample Data Requirements
+Create realistic mock data:
+- 3-4 sample companies with different branding
+- 10+ agencies per company
+- 50+ employees across agencies
+- 100+ timesheets in various approval states
+- Generated invoices and payslips
+- User accounts with different permission levels
+
+## Functional Workflows
+
+### Document Processing Flow:
+1. Upload timesheet document
+2. Simulate OCR extraction with delay
+3. Display extracted data for validation
+4. Allow corrections and adjustments
+5. Auto-create timesheet records
+6. Route to approval workflow
+
+### Payroll Processing Flow:
+1. Select pay period and employees
+2. Calculate gross pay from timesheets
+3. Apply tax calculations and deductions
+4. Generate payslips with breakdown
+5. Create payment batches
+6. Export bank payment files
+
+### Invoice Generation:
+1. Select approved timesheets
+2. Group by agency and period
+3. Calculate totals and VAT
+4. Generate branded invoice
+5. Track payment status
+
+## UI/UX Design Guidelines
+- Clean, professional business application
+- Consistent spacing and typography
+- Company branding integration (colors, logos)
+- Accessible forms with clear validation
+- Loading states and progress indicators
+- Success/error notifications
+- Mobile-responsive design
+- Data tables with sorting and filtering
+
+## Technical Implementation
+- Use React Context for global state management
+- Implement company switching without page reload
+- Form validation with real-time feedback
+- Pagination for large datasets
+- Search and filtering functionality
+- Mock API calls with realistic delays
+- Local data persistence during session
+
+## Authentication System
+- Company selection on login
+- Email/password authentication simulation
+- Role-based route protection
+- Session management
+- User invitation workflows
+
+Create a fully functional prototype demonstrating professional payroll management with multi-tenant architecture, focusing on intuitive workflows and comprehensive data management.
